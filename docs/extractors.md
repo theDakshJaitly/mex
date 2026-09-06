@@ -115,6 +115,15 @@ When adding a language, document the grammar source and version.
 - **Upstream grammar:** [tree-sitter/tree-sitter-rust](https://github.com/tree-sitter/tree-sitter-rust)
 - **Upstream grammar license:** MIT
 
+### C#
+- **Binary source:** `tree-sitter-c-sharp` package, version `0.23.5` (the grammar's own published package, not `tree-sitter-wasms` — see note below)
+- **Vendored path:** `src/graph/wasm/tree-sitter-c-sharp.wasm`
+- **SHA-256:** matches `node_modules/tree-sitter-c-sharp@0.23.5/tree-sitter-c_sharp.wasm` exactly
+- **Binary package license:** MIT
+- **Upstream grammar:** [tree-sitter/tree-sitter-c-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
+- **Upstream grammar license:** MIT
+- **Note:** `tree-sitter-wasms@0.1.12` also ships a `tree-sitter-c_sharp.wasm`, but it is built from a different grammar revision than the `node-types.json` published with `tree-sitter-c-sharp@0.23.5`. Several fields that `node-types.json` declares (`variable_declarator.name`, `using_directive.name`) return `undefined` via `childForFieldName` against that older build. The extractor is written and tested against 0.23.5's own field layout — use the grammar's own published wasm for this language, not `tree-sitter-wasms`'s copy.
+
 ## Pull request proof
 
 Before opening a pull request, run:
