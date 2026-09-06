@@ -930,7 +930,15 @@ program
     try {
       const config = loadConfig();
       const { runTimeline } = await import("./events.js");
-      await runTimeline(config, opts);
+      // `--type` is the user-facing flag name; TimelineOpts calls it `kind`.
+      // Pass it across explicitly — spreading `opts` leaves `kind` undefined
+      // and the filter silently matches everything.
+      await runTimeline(config, {
+        json: opts.json,
+        since: opts.since,
+        kind: opts.type,
+        limit: opts.limit,
+      });
     } catch (err) {
       console.error((err as Error).message);
       process.exit(1);

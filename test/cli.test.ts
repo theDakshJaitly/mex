@@ -89,7 +89,12 @@ function buildProgram(): Command {
     .action(async (opts) => {
       try {
         const { runTimeline } = await import("../src/events.js");
-        await runTimeline(config, opts);
+        await runTimeline(config, {
+          json: opts.json,
+          since: opts.since,
+          kind: opts.type,
+          limit: opts.limit,
+        });
       } catch (err) {
         console.error((err as Error).message);
         process.exit(1);
@@ -187,7 +192,12 @@ describe("mex timeline parsing", () => {
     const program = buildProgram();
     await program.parseAsync(["node", "mex", "timeline", "--limit", "5"]);
 
-    expect(runTimeline).toHaveBeenCalledWith(config, { limit: 5 });
+    expect(runTimeline).toHaveBeenCalledWith(config, {
+      json: undefined,
+      since: undefined,
+      kind: undefined,
+      limit: 5,
+    });
   });
 
   it("rejects invalid --limit values", async () => {
@@ -200,7 +210,7 @@ describe("mex timeline parsing", () => {
     }
   });
 
-  it("passes --json, --since, and --type through to the timeline handler", async () => {
+  it("maps --type onto the handler's `kind` option", async () => {
     const program = buildProgram();
     await program.parseAsync([
       "node",
@@ -216,7 +226,8 @@ describe("mex timeline parsing", () => {
     expect(runTimeline).toHaveBeenCalledWith(config, {
       json: true,
       since: "30d",
-      type: "risk",
+      kind: "risk",
+      limit: undefined,
     });
   });
 });
@@ -1582,6 +1593,47 @@ Canonical read-only release requirements.
       rmSync(outside, { recursive: true, force: true });
     }
   });
+
+  it("filters the timeline by --type through the real binary", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "mex-timeline-"));
+    const env = { ...process.env, NO_COLOR: "1" };
+    try {
+      const mexPath = join(fixture, ".mex");
+      mkdirSync(join(mexPath, "events"), { recursive: true });
+      writeFileSync(join(mexPath, "ROUTER.md"), "");
+      writeFileSync(
+        join(mexPath, "events", "decisions.jsonl"),
+        [
+          { timestamp: "2026-05-14T00:00:00.000Z", kind: "decision", message: "picked sqlite", files: [] },
+          { timestamp: "2026-05-15T00:00:00.000Z", kind: "risk", message: "wasm heap pressure", files: [] },
+        ]
+          .map((e) => JSON.stringify(e))
+          .join("\n") + "\n",
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [cliPath, "timeline", "--type", "decision", "--json"],
+        { cwd: fixture, encoding: "utf8", env },
+      );
+      expect(result.status).toBe(0);
+
+      const { events } = JSON.parse(result.stdout) as { events: { kind: string }[] };
+      expect(events).toHaveLength(1);
+      expect(events[0].kind).toBe("decision");
+
+      // An unknown kind must fail the way `mex log` does, not quietly list everything.
+      const unknown = spawnSync(
+        process.execPath,
+        [cliPath, "timeline", "--type", "session_start"],
+        { cwd: fixture, encoding: "utf8", env },
+      );
+      expect(unknown.status).toBe(1);
+      expect(unknown.stderr).toContain('Unknown event type "session_start"');
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
 
 describe("mex --version", () => {

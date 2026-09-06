@@ -86,4 +86,24 @@ describe("events", () => {
     await runTimeline(config, { json: true });
     expect(spy.mock.calls.at(-1)?.[0]).toContain('"events"');
   });
+
+  it("timeline keeps only the requested kind", async () => {
+    appendEvent(config, "picked sqlite", { kind: "decision" });
+    appendEvent(config, "wasm heap pressure", { kind: "risk" });
+    appendEvent(config, "plain note", { kind: "note" });
+
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runTimeline(config, { json: true, kind: "decision" });
+
+    const { events } = JSON.parse(spy.mock.calls.at(-1)?.[0] as string);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: "decision", message: "picked sqlite" });
+  });
+
+  it("timeline rejects an unknown kind instead of returning everything", async () => {
+    appendEvent(config, "plain note", { kind: "note" });
+    await expect(runTimeline(config, { kind: "session_start" })).rejects.toThrow(
+      /Unknown event type "session_start"/,
+    );
+  });
 });
